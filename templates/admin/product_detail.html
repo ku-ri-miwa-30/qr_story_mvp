@@ -1,0 +1,200 @@
+{#
+  product_detail.html — 商品の管理ページ
+    ・状態と申請・承認の操作（ワークフロー）
+    ・QRコード／読み取り回数
+    ・できるまでの記録（年表）
+    ・申請履歴／この商品の監査ログ
+#}
+{% extends "base.html" %}
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back" href="{{ url_for('admin.product_list') }}">← 商品一覧</a>
+    <h1>{{ product.name }} {% with status = product.status %}{% include "admin/_status.html" %}{% endwith %}</h1>
+    <p class="muted">{{ product.producer_name }}{% if product.origin %}・{{ product.origin }}{% endif %}
+      <span class="small">（バージョン {{ product.version }}・更新 {{ product.updated_at }}）</span></p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="{{ url_for('public.story', slug=product.slug) }}" target="_blank">物語ページを見る ↗</a>
+    {% if editable and can(g.current_user, 'product.write') %}
+      <a class="btn" href="{{ url_for('admin.product_edit', product_id=product.id) }}">編集</a>
+    {% endif %}
+  </div>
+</div>
+
+{# ---------------- ワークフロー（申請・承認） ---------------- #}
+<section class="card workflow-card">
+  <h2>申請・承認</h2>
+  {# 状態の流れを横に並べ、今の状態を強調する #}
+  <ol class="flow">
+    {% for key in ['draft', 'pending', 'published'] %}
+      <li class="{{ 'current' if product.status == key }}">{{ STATUS_LABELS[key] }}</li>
+    {% endfor %}
+  </ol>
+  {% if product.status == 'rejected' %}
+    <p class="hint warn">差し戻されています。内容を直して、もう一度申請してください（理由は下の申請履歴にあります）。</p>
+  {% elif product.status == 'pending' %}
+    <p class="hint">承認者の確認待ちです。この間は編集できません。</p>
+  {% elif product.status == 'published' %}
+    <p class="hint">公開中です。内容を変えるときは、承認者が「公開停止」して下書きに戻します。</p>
+  {% else %}
+    <p class="hint">下書きです。物語と記録を書いたら「承認申請」してください。</p>
+  {% endif %}
+
+  {#
+    actions は workflow_service.available_actions() が決めた「今この人が押せるボタン」だけ。
+    （自分の申請に「承認」ボタンは出ない ＝ 職務分掌）
+    それでも念のため、サーバー側でも必ず同じチェックをしている（画面を信用しない）。
+  #}
+  {% if actions %}
+  <div class="workflow-actions">
+    {% for action in actions %}
+    <form method="post" action="{{ url_for('admin.workflow', product_id=product.id, action=action) }}" class="workflow-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if action in ('submit', 'approve', 'reject') %}
+        <input type="text" name="comment" maxlength="1000"
+               placeholder="{{ '差し戻し理由（必須）' if action == 'reject' else 'コメント（任意）' }}"
+               {{ 'required' if action == 'reject' }}>
+      {% endif %}
+      <button type="submit" class="btn {{ 'btn-primary' if action in ('submit', 'approve') else ('btn-danger' if action in ('reject', 'unpublish') else '') }}">
+        {{ TRANSITIONS[action].label }}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  {% elif product.status == 'pending' and can(g.current_user, 'product.approve') %}
+    <p class="hint">自分が出した申請は承認できません（職務分掌）。別の承認者に依頼してください。</p>
+  {% endif %}
+</section>
+
+<div class="detail-grid">
+  {# ---------------- QRコード ---------------- #}
+  <section class="card qr-card">
+    <h2>QRコード</h2>
+    <img class="qr-img" src="{{ url_for('admin.product_qr', product_id=product.id) }}" alt="この商品のQRコード">
+    <p class="qr-url"><code>{{ story_url(product.slug) }}</code></p>
+    <div class="actions">
+      <a class="btn btn-primary" href="{{ url_for('admin.product_qr', product_id=product.id, download=1) }}">PNGをダウンロード</a>
+      <a class="btn" href="{{ url_for('admin.product_label', product_id=product.id) }}" target="_blank">ラベルを印刷</a>
+    </div>
+    {% if product.status != 'published' %}
+      <p class="hint warn">※ 公開されるまでは、お客さんがQRを読み取っても「見つかりません」と表示されます。</p>
+    {% endif %}
+  </section>
+
+  {# ---------------- 読み取り回数 ---------------- #}
+  <section class="card">
+    <h2>読み取られた回数</h2>
+    <p class="big-number">{{ stats.total }}<span>回</span></p>
+    <p class="muted">直近7日間</p>
+    {% set max_daily = (stats.daily | map(attribute='count') | max) or 1 %}
+    <div class="bars">
+      {% for d in stats.daily %}
+      <div class="bar-col">
+        <span class="bar-value">{{ d.count }}</span>
+        <div class="bar" style="height: {{ (d.count / max_daily * 100) | round }}%"></div>
+        <span class="bar-label">{{ d.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="hint">ログイン中に物語ページを開いても回数には入りません。</p>
+  </section>
+</div>
+
+{# ---------------- できるまでの記録（年表） ---------------- #}
+<section class="card" id="timeline">
+  <h2>できるまでの記録</h2>
+  <p class="muted">種まき・収穫・加工・出荷など、商品ができるまでの出来事。物語ページに年表として表示されます。</p>
+
+  {% if events %}
+  <ol class="admin-timeline">
+    {% for e in events %}
+    <li>
+      <div>
+        <time>{{ e.event_date | jdate }}</time>
+        <strong>{{ e.title }}</strong>
+        {% if e.description %}<p class="muted">{{ e.description }}</p>{% endif %}
+      </div>
+      {% if editable %}
+      <form method="post" action="{{ url_for('admin.event_delete', event_id=e.id) }}"
+            onsubmit="return confirm('この記録を削除しますか？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost btn-sm" type="submit">削除</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+    <p class="empty-inline">まだ記録がありません。</p>
+  {% endif %}
+
+  {% if editable %}
+  <form class="event-form" method="post" action="{{ url_for('admin.event_add', product_id=product.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="field">
+      <span>日付</span>
+      <input type="date" name="event_date" required>
+    </label>
+    <label class="field">
+      <span>出来事</span>
+      <input type="text" name="title" required maxlength="100" placeholder="例：一番茶の手摘み">
+    </label>
+    <label class="field wide">
+      <span>説明（任意）</span>
+      <input type="text" name="description" maxlength="1000" placeholder="例：新芽の先端、一芯二葉だけを手で摘み取りました。">
+    </label>
+    <button class="btn btn-primary" type="submit">記録を追加</button>
+  </form>
+  {% else %}
+    <p class="hint">下書き・差し戻しの状態のときだけ追加・削除できます。</p>
+  {% endif %}
+</section>
+
+{# ---------------- 申請履歴 ---------------- #}
+<section class="card">
+  <h2>申請履歴</h2>
+  {% if history %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>申請日時</th><th>申請者</th><th>コメント</th><th>結果</th><th>審査者</th><th>審査コメント</th></tr></thead>
+      <tbody>
+      {% for h in history %}
+        <tr>
+          <td class="nowrap">{{ h.requested_at }}</td>
+          <td>{{ h.requested_by_name }}</td>
+          <td>{{ h.request_comment or '' }}</td>
+          <td><span class="badge badge-req-{{ h.status }}">{{ REQUEST_STATUS_LABELS[h.status] }}</span></td>
+          <td>{{ h.reviewed_by_name or '' }}</td>
+          <td>{{ h.review_comment or '' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty-inline">まだ申請はありません。</p>
+  {% endif %}
+</section>
+
+{# ---------------- この商品の監査ログ（承認者のみ） ---------------- #}
+{% if can(g.current_user, 'audit.read') %}
+<section class="card">
+  <h2>この商品の操作履歴（監査ログ）</h2>
+  {% include "admin/_audit_table.html" %}
+  <p class="hint"><a href="{{ url_for('admin.audit_logs') }}">監査ログをすべて見る →</a></p>
+</section>
+{% endif %}
+
+{% if can(g.current_user, 'product.delete') %}
+<section class="danger-zone">
+  <form method="post" action="{{ url_for('admin.product_delete', product_id=product.id) }}"
+        onsubmit="return confirm('この商品を削除します。記録や閲覧数も消えます。よろしいですか？');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-danger btn-sm" type="submit">この商品を削除</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

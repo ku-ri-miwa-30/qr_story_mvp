@@ -1,0 +1,22 @@
+{
+  // F5 キーでデバッグ実行するための設定。ブレークポイント（行番号の左をクリック）で処理を止めて変数を見られる
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flask: アプリを起動",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/app.py",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "テストを実行",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-v"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  // このプロジェクトで使うと便利な VS Code 拡張機能（開くと「インストールしますか？」と聞かれます）
+  "recommendations": [
+    "ms-python.python",             // Python（実行・デバッグ・補完）
+    "humao.rest-client",            // api.http から API を叩ける
+    "qwtel.sqlite-viewer",          // data/story_qr.db の中身を表で見られる
+    "bierner.markdown-mermaid"      // docs/design.md の図（Mermaid）をプレビューで表示
+  ]
+}

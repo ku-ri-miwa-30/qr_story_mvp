@@ -1,0 +1,159 @@
+###############################################################################
+# api.http — REST API を VS Code から叩いてみるファイル
+#
+# 使い方：
+#   1. VS Code に拡張機能「REST Client」（humao.rest-client）を入れる
+#   2. python app.py でアプリを起動
+#   3. 管理画面の「アカウント」で APIトークンを発行し、下の @token に貼る
+#   4. 各リクエストの上に出る「Send Request」をクリック → 右側に結果が出る
+#
+# ### の行がリクエストの区切り。@名前 = 値 で変数を作り、{{名前}} で使える。
+###############################################################################
+
+@baseUrl = http://127.0.0.1:5000/api/v1
+@token = ここに発行したトークンを貼る
+
+### 自分の情報（トークンが正しいかの確認）
+GET {{baseUrl}}/me
+Authorization: Bearer {{token}}
+
+
+### 商品一覧（?status=draft / pending / published / rejected で絞り込み）
+GET {{baseUrl}}/products?status=published
+Authorization: Bearer {{token}}
+
+
+### 商品を登録（下書きになる）→ 201 Created
+# @name created
+POST {{baseUrl}}/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "和紅茶「はるひ」",
+  "producer_name": "やまなみ茶園",
+  "origin": "静岡県牧之原市",
+  "catchcopy": "二番茶でつくる、やさしい和紅茶。",
+  "story": "夏の二番茶をじっくり発酵させて、渋みの少ない紅茶に仕上げました。"
+}
+
+
+### 登録した商品を取得（上のレスポンスの id を自動で使う）
+@productId = {{created.response.body.id}}
+GET {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{token}}
+
+
+### 一部更新（PATCH）。version は GET で取った値を入れる。古いと 409 Conflict
+PATCH {{baseUrl}}/products/{{productId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "catchcopy": "夏の二番茶でつくる、やさしい和紅茶。",
+  "version": 1
+}
+
+
+### 入力エラーの例 → 422 と項目ごとのエラー
+POST {{baseUrl}}/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "catchcopy": "とても長いキャッチコピーとても長いキャッチコピーとても長いキャッチコピーとても長いキャッチコピーとても長い"
+}
+
+
+### できるまでの記録を追加
+POST {{baseUrl}}/products/{{productId}}/events
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "event_date": "2026-07-10",
+  "title": "二番茶の摘採",
+  "description": "梅雨明けの晴れた日に摘み取りました。"
+}
+
+
+### ■ 申請・承認フロー ■
+
+### 承認申請（下書き → 承認待ち）
+POST {{baseUrl}}/products/{{productId}}/submit
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "comment": "確認をお願いします。" }
+
+
+### 承認（承認待ち → 公開中）※承認者のトークンで。自分の申請は 403
+POST {{baseUrl}}/products/{{productId}}/approve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "comment": "OKです。" }
+
+
+### 差し戻し（承認待ち → 差し戻し）comment 必須
+POST {{baseUrl}}/products/{{productId}}/reject
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "comment": "産地を市町村まで書いてください。" }
+
+
+### 申請の一覧（審査中だけ）
+GET {{baseUrl}}/approval-requests?status=pending
+Authorization: Bearer {{token}}
+
+
+### ■ 監査ログ（承認者のみ）■
+GET {{baseUrl}}/audit-logs?target_type=product&target_id={{productId}}
+Authorization: Bearer {{token}}
+
+
+### ■ ファイル連携 ■
+
+### エクスポート（JSONファイル）
+GET {{baseUrl}}/export
+Authorization: Bearer {{token}}
+
+
+### インポート（JSON ボディで送る場合）。1件でもエラーなら全件取り込まない
+POST {{baseUrl}}/import
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "format": "story-qr-products",
+  "format_version": 1,
+  "products": [
+    {
+      "name": "ほうじ茶ラテの素",
+      "producer_name": "やまなみ茶園",
+      "story": "焙じたての香りを、粉末にぎゅっと閉じ込めました。",
+      "events": [
+        { "event_date": "2026-09-01", "title": "焙煎", "description": "200℃で一気に焙じます。" }
+      ]
+    }
+  ]
+}
+
+
+### インポート（ファイルで送る場合：multipart/form-data）
+POST {{baseUrl}}/import
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----boundary
+
+------boundary
+Content-Disposition: form-data; name="file"; filename="sample.json"
+Content-Type: application/json
+
+< ./docs/sample-import.json
+------boundary--
+
+
+### トークンなし → 401
+GET {{baseUrl}}/products

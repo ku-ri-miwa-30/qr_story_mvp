@@ -1,0 +1,85 @@
+{# transfer.html — データ連携（JSONファイルのエクスポート／インポート） #}
+{% extends "base.html" %}
+{% block title %}データ連携{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>データ連携（JSONファイル）</h1>
+    <p class="muted">ほかのシステムやExcel作業と、商品データをファイルでやり取りします。同じことは API（<code>/api/v1/export</code>・<code>/api/v1/import</code>）でもできます。</p>
+  </div>
+</div>
+
+<div class="detail-grid">
+  <section class="card">
+    <h2>エクスポート（このシステム → 外部）</h2>
+    <p class="muted">全商品と「できるまでの記録」を1つのJSONファイルでダウンロードします（写真は含みません）。</p>
+    <p><a class="btn btn-primary" href="{{ url_for('admin.transfer_export') }}">JSONをダウンロード</a></p>
+  </section>
+
+  <section class="card">
+    <h2>インポート（外部 → このシステム）</h2>
+    <p class="muted">取り込んだ商品は<strong>下書き</strong>として登録され、承認フローを通してから公開されます。1件でもエラーがあれば、1件も取り込みません。</p>
+    <form method="post" action="{{ url_for('admin.transfer_import') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="field">
+        <span>JSONファイル</span>
+        <input type="file" name="file" accept="application/json,.json" required>
+      </label>
+      <button class="btn btn-primary" type="submit">取り込む</button>
+    </form>
+  </section>
+</div>
+
+{% if errors %}
+<section class="card">
+  <h2>取り込めませんでした</h2>
+  <p class="flash flash-error">{{ summary }}</p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>場所</th><th>内容</th></tr></thead>
+      <tbody>
+      {% for e in errors %}
+        <tr><td><code>{{ e.field }}</code></td><td>{{ e.message }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% elif summary %}
+<p class="flash flash-error">{{ summary }}</p>
+{% endif %}
+
+{% if result %}
+<section class="card">
+  <h2>取り込み結果</h2>
+  <p>{{ result.created }} 件を下書きとして登録しました。</p>
+  <ul>
+    {% for pid in result.product_ids %}
+      <li><a href="{{ url_for('admin.product_detail', product_id=pid) }}">商品 #{{ pid }}</a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>ファイルの形式</h2>
+  <pre class="code-block">{
+  "format": "story-qr-products",
+  "format_version": 1,
+  "products": [
+    {
+      "name": "深蒸し煎茶「朝霧」",
+      "producer_name": "やまなみ茶園",
+      "origin": "静岡県牧之原市",
+      "catchcopy": "霧が晴れる前の一番茶だけを、手で摘みました。",
+      "story": "牧之原台地の茶畑は…",
+      "producer_message": "70℃くらいで淹れると甘みがよく出ます。",
+      "events": [
+        { "event_date": "2026-04-28", "title": "一番茶の手摘み", "description": "…" }
+      ]
+    }
+  ]
+}</pre>
+</section>
+{% endblock %}

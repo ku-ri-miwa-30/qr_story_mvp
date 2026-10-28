@@ -1,0 +1,77 @@
+{#
+  product_form.html — 商品の「新規登録」と「編集」で共通のフォーム
+    product … 入力欄の初期値 / is_new … 新規なら True / errors … 入力エラーの一覧
+#}
+{% extends "base.html" %}
+{% block title %}{{ '商品を登録' if is_new else '商品を編集' }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back" href="{{ url_for('admin.product_list') if is_new else url_for('admin.product_detail', product_id=product.id) }}">← 戻る</a>
+    <h1>{{ '商品を登録' if is_new else '商品を編集' }}</h1>
+  </div>
+</div>
+
+{% if errors %}
+<div class="flashes">
+  {% for e in errors %}<p class="flash flash-error">{{ e.message }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<form class="card form" method="post" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {#
+    楽観的ロック：画面を開いたときのバージョン番号を一緒に送る。
+    保存時に DB のバージョンと違えば「誰かが先に更新した」と分かる（repositories/products.py の update）
+  #}
+  {% if not is_new %}<input type="hidden" name="version" value="{{ product.version }}">{% endif %}
+
+  <div class="form-row two">
+    <label class="field">
+      <span>商品名 <em>必須</em></span>
+      <input type="text" name="name" value="{{ product.name or '' }}" required maxlength="100" placeholder="例：朝摘みいちご 紅ほっぺ">
+    </label>
+    <label class="field">
+      <span>生産者・農園名 <em>必須</em></span>
+      <input type="text" name="producer_name" value="{{ product.producer_name or '' }}" required maxlength="100" placeholder="例：やまなみ農園">
+    </label>
+  </div>
+
+  <div class="form-row two">
+    <label class="field">
+      <span>産地</span>
+      <input type="text" name="origin" value="{{ product.origin or '' }}" maxlength="100" placeholder="例：静岡県掛川市">
+    </label>
+    <label class="field">
+      <span>キャッチコピー（60文字以内）</span>
+      <input type="text" name="catchcopy" maxlength="60" value="{{ product.catchcopy or '' }}" placeholder="例：朝5時、いちばん甘い時間に摘みました。">
+    </label>
+  </div>
+
+  <label class="field">
+    <span>この商品の物語 <em>申請時に必須</em></span>
+    <textarea name="story" rows="8" maxlength="5000" placeholder="どんな想いで、どんな工夫をして作っているか。お客さんに伝えたいことを自由に書きましょう。">{{ product.story or '' }}</textarea>
+  </label>
+
+  <label class="field">
+    <span>生産者からのひとこと</span>
+    <textarea name="producer_message" rows="3" maxlength="1000" placeholder="例：ぜひ、冷やしすぎず常温で召し上がってください。">{{ product.producer_message or '' }}</textarea>
+  </label>
+
+  <label class="field">
+    <span>写真（png / jpg / webp、5MBまで）</span>
+    <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp">
+    {% if product.image_filename %}
+      <div class="current-image">
+        <img src="{{ image_url(product.image_filename) }}" alt="現在の写真">
+        <label class="check"><input type="checkbox" name="remove_image" value="1"> 写真を削除する</label>
+      </div>
+    {% endif %}
+  </label>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">{{ '下書きとして登録' if is_new else '保存する' }}</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,42 @@
+{# approvals.html — 申請の一覧（承認待ちキュー） #}
+{% extends "base.html" %}
+{% block title %}承認待ち{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>申請一覧</h1>
+    <p class="muted">商品名をクリックすると、内容を確認して承認・差し戻しができます。</p>
+  </div>
+</div>
+
+<nav class="tabs">
+  {% for key, label in [('pending', '審査中'), ('approved', '承認'), ('rejected', '差し戻し'), ('withdrawn', '取り下げ'), ('all', 'すべて')] %}
+  <a href="{{ url_for('admin.approvals', status=key) }}" class="{{ 'active' if current_status == key }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<section class="card">
+  {% if requests %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>申請日時</th><th>商品</th><th>申請者</th><th>コメント</th><th>状態</th><th>審査</th></tr></thead>
+      <tbody>
+      {% for r in requests %}
+        <tr>
+          <td class="nowrap">{{ r.requested_at }}</td>
+          <td><a href="{{ url_for('admin.product_detail', product_id=r.product_id) }}">{{ r.product_name }}</a></td>
+          <td>{{ r.requested_by_name }}</td>
+          <td>{{ r.request_comment or '' }}</td>
+          <td><span class="badge badge-req-{{ r.status }}">{{ REQUEST_STATUS_LABELS[r.status] }}</span></td>
+          <td>{% if r.reviewed_by_name %}{{ r.reviewed_by_name }}<br><span class="small muted">{{ r.reviewed_at }}</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="empty-inline">該当する申請はありません。</p>
+  {% endif %}
+</section>
+{% endblock %}

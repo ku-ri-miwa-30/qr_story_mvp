@@ -1,0 +1,104 @@
+{#
+  story.html — お客さんがQRを読み取って開く「物語ページ」
+
+  ほぼ全員がスマホで見るページなので、スマホの縦画面を基準にデザインしている。
+  管理画面とは雰囲気を変えたいので base.html は継承せず、単独のHTMLにしている。
+#}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ product.name }}の物語 | {{ product.producer_name }}</title>
+  {# SNS でシェアされたときに表示される情報（OGP）。シェアされると宣伝になる #}
+  <meta property="og:title" content="{{ product.name }}の物語">
+  <meta property="og:description" content="{{ product.catchcopy or (product.producer_name ~ 'がお届けする' ~ product.name) }}">
+  {% if product.image_filename %}
+  <meta property="og:image" content="{{ image_url(product.image_filename, external=True) }}">
+  {% endif %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="story">
+
+  {# 管理者が見ているときだけ表示する帯（お客さんには見えない） #}
+  {% if is_staff %}
+  <div class="preview-bar">
+    プレビュー中（閲覧数にはカウントされません）
+    {% if product.status != 'published' %}・<strong>{{ STATUS_LABELS[product.status] }}（未公開）</strong>{% endif %}
+    ・<a href="{{ url_for('admin.product_detail', product_id=product.id) }}">管理画面へ戻る</a>
+  </div>
+  {% endif %}
+
+  {# ---------------- 表紙 ---------------- #}
+  <header class="story-hero {% if product.image_filename %}has-image{% endif %}">
+    {% if product.image_filename %}
+      <img class="hero-img" src="{{ image_url(product.image_filename) }}" alt="{{ product.name }}">
+    {% endif %}
+    <div class="hero-text">
+      <p class="eyebrow">この商品の物語</p>
+      <h1>{{ product.name }}</h1>
+      {% if product.catchcopy %}<p class="catch">{{ product.catchcopy }}</p>{% endif %}
+    </div>
+  </header>
+
+  <main class="story-main">
+    {# ---------------- 誰が・どこで ---------------- #}
+    <section class="who">
+      <div>
+        <span class="who-label">つくった人</span>
+        <strong>{{ product.producer_name }}</strong>
+      </div>
+      {% if product.origin %}
+      <div>
+        <span class="who-label">産地</span>
+        <strong>{{ product.origin }}</strong>
+      </div>
+      {% endif %}
+    </section>
+
+    {# ---------------- 物語本文 ---------------- #}
+    {% if product.story %}
+    <section class="story-body">
+      {#
+        入力された改行をそのまま表示したいので、CSS の white-space: pre-line を使っている。
+        （HTMLでは本来、改行は無視されて1行につながってしまう）
+        ※ ここで | safe を使って <br> に置き換える方法もあるが、
+          入力内容に悪意のあるHTMLが入っていた場合に危険なので、CSSで対応する方が安全。
+      #}
+      <p>{{ product.story }}</p>
+    </section>
+    {% endif %}
+
+    {# ---------------- できるまで（トレーサビリティ） ---------------- #}
+    {% if events %}
+    <section class="story-timeline">
+      <h2>この商品ができるまで</h2>
+      <ol>
+        {% for e in events %}
+        <li>
+          <time datetime="{{ e.event_date }}">{{ e.event_date | jdate }}</time>
+          <h3>{{ e.title }}</h3>
+          {% if e.description %}<p>{{ e.description }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+    {% endif %}
+
+    {# ---------------- 生産者からのひとこと ---------------- #}
+    {% if product.producer_message %}
+    <section class="message">
+      <h2>{{ product.producer_name }}より</h2>
+      <blockquote>{{ product.producer_message }}</blockquote>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer class="story-footer">
+    <p>手に取ってくださり、ありがとうございます。</p>
+    <p class="small">この商品の物語 — QR story</p>
+  </footer>
+</body>
+</html>

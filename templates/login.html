@@ -1,0 +1,26 @@
+{# login.html — ログイン画面 #}
+{% extends "base.html" %}
+{% block title %}ログイン{% endblock %}
+
+{% block content %}
+<section class="card login-card">
+  <h1>管理画面にログイン</h1>
+  <p class="muted">商品の登録・申請は「編集者」、承認は「承認者」のアカウントで行います。</p>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="field">
+      <span>ユーザー名</span>
+      <input type="text" name="username" required autofocus autocomplete="username">
+    </label>
+    <label class="field">
+      <span>パスワード</span>
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button class="btn btn-primary" type="submit">ログイン</button>
+  </form>
+  {% if config.APP_ENV != 'production' %}
+  <p class="hint">開発用の初期アカウント：<code>editor / editor</code>（編集者）、<code>approver / approver</code>（承認者）</p>
+  {% endif %}
+</section>
+{% endblock %}

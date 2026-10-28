@@ -1,0 +1,17 @@
+{# 404.html — ページが見つからないとき（存在しない商品・非公開の商品など） #}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ページが見つかりません</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="story">
+  <main class="notfound">
+    <p class="eyebrow">404</p>
+    <h1>ページが見つかりません</h1>
+    <p>この商品の物語は、現在公開されていないか、URLが間違っている可能性があります。</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{# audit_logs.html — 監査ログの検索・一覧（承認者のみ） #}
+{% extends "base.html" %}
+{% block title %}監査ログ{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>監査ログ</h1>
+    <p class="muted">「誰が・いつ・何を・どう変えたか」の記録です。追記のみで、変更・削除はできません。</p>
+  </div>
+</div>
+
+{# 検索フォームは GET（URLに条件が残るので、検索結果のURLをそのまま共有できる） #}
+<form class="card filter-form" method="get">
+  <label class="field">
+    <span>操作（前方一致）</span>
+    <input type="text" name="action" value="{{ filters.action or '' }}" placeholder="例：product. / auth.login">
+  </label>
+  <label class="field">
+    <span>操作した人</span>
+    <input type="text" name="actor" value="{{ filters.actor or '' }}" placeholder="例：承認者（運営）">
+  </label>
+  <button class="btn btn-primary" type="submit">絞り込む</button>
+  <a class="btn btn-ghost" href="{{ url_for('admin.audit_logs') }}">クリア</a>
+</form>
+
+<section class="card">
+  {% include "admin/_audit_table.html" %}
+  <p class="hint">最新300件まで表示しています。</p>
+</section>
+{% endblock %}

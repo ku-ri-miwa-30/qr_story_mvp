@@ -1,0 +1,38 @@
+{# account.html — 自分のアカウント情報と APIトークンの発行 #}
+{% extends "base.html" %}
+{% block title %}アカウント{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div><h1>アカウント</h1></div>
+</div>
+
+<section class="card">
+  <h2>ログイン中のユーザー</h2>
+  <dl class="kv">
+    <dt>ユーザー名</dt><dd><code>{{ g.current_user.username }}</code></dd>
+    <dt>表示名</dt><dd>{{ g.current_user.display_name }}</dd>
+    <dt>役割</dt><dd>{{ ROLE_LABELS[g.current_user.role] }}（<code>{{ g.current_user.role }}</code>）</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h2>APIトークン</h2>
+  <p class="muted">REST API（<code>/api/v1/...</code>）を使うときの合言葉です。リクエストのヘッダーに
+    <code>Authorization: Bearer &lt;トークン&gt;</code> を付けて送ります。権限はこのアカウントと同じです。</p>
+
+  {% if new_token %}
+    <div class="token-box">
+      <p><strong>新しいトークンを発行しました。この画面を閉じると二度と表示できません。</strong>今すぐコピーして保管してください。</p>
+      <pre class="code-block">{{ new_token }}</pre>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('admin.issue_token') }}"
+        onsubmit="return confirm('新しいトークンを発行すると、今までのトークンは使えなくなります。よろしいですか？');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-primary" type="submit">{{ 'もう一度発行する' if new_token or g.current_user.api_token_hash else 'トークンを発行する' }}</button>
+  </form>
+  <p class="hint">VS Code の拡張機能「REST Client」で <code>api.http</code> を開き、先頭の <code>@token</code> に貼り付けると API を試せます。</p>
+</section>
+{% endblock %}

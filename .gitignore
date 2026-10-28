@@ -1,0 +1,17 @@
+# 仮想環境
+.venv/
+venv/
+# Python のキャッシュ
+__pycache__/
+*.pyc
+.pytest_cache/
+# データ（DBファイル・アップロード画像）は Git に入れない
+data/
+*.db
+*.db-wal
+*.db-shm
+# 環境変数ファイル（秘密情報）
+.env
+# OS
+.DS_Store
+Thumbs.db

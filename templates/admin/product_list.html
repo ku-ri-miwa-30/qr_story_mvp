@@ -1,0 +1,52 @@
+{# product_list.html — 商品一覧（状態で絞り込みできる） #}
+{% extends "base.html" %}
+{% block title %}商品一覧{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>商品一覧</h1>
+    <p class="muted">商品は「下書き → 承認申請 → 承認」で公開されます。</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('admin.product_new') }}">＋ 商品を登録</a>
+</div>
+
+{# 状態ごとの絞り込みタブ。?status=draft のようにURLパラメータで渡す #}
+<nav class="tabs">
+  <a href="{{ url_for('admin.product_list') }}" class="{{ 'active' if not current_status }}">すべて</a>
+  {% for key, label in STATUS_LABELS.items() %}
+  <a href="{{ url_for('admin.product_list', status=key) }}" class="{{ 'active' if current_status == key }}">
+    {{ label }} <span class="tab-count">{{ counts.get(key, 0) }}</span>
+  </a>
+  {% endfor %}
+</nav>
+
+{% if not products %}
+  <section class="card empty">
+    <p>該当する商品はありません。</p>
+    <p class="muted">「商品を登録」から作るか、ターミナルで <code>python seed.py</code> を実行するとサンプルが入ります。</p>
+  </section>
+{% else %}
+  <div class="product-grid">
+    {% for p in products %}
+    <a class="card product-card" href="{{ url_for('admin.product_detail', product_id=p.id) }}">
+      <div class="thumb">
+        {% if p.image_filename %}
+          <img src="{{ image_url(p.image_filename) }}" alt="">
+        {% else %}
+          <span class="thumb-initial">{{ p.name[:1] }}</span>
+        {% endif %}
+      </div>
+      <div class="product-card-body">
+        <h2>{{ p.name }}</h2>
+        <p class="muted">{{ p.producer_name }}{% if p.origin %}・{{ p.origin }}{% endif %}</p>
+        <div class="meta-row">
+          <span class="stat"><strong>{{ p.scan_count }}</strong> 回 読み取り</span>
+          {% with status = p.status %}{% include "admin/_status.html" %}{% endwith %}
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,58 @@
+{#
+  base.html — 管理画面の共通の枠（ヘッダー・ナビ・メッセージ）
+  各ページは {% extends "base.html" %} で引き継ぎ、{% block content %} の中身だけ書く。
+#}
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}管理画面{% endblock %} | この商品の物語</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="admin">
+  <header class="admin-header">
+    <a class="brand" href="{{ url_for('admin.product_list') }}">
+      <span class="brand-mark">物</span>この商品の物語
+    </a>
+    {% if g.current_user %}
+    {# request.endpoint は「今表示している画面の関数名」。今いるメニューを強調するのに使う #}
+    <nav class="admin-nav">
+      <a href="{{ url_for('admin.product_list') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.product') }}">商品</a>
+      <a href="{{ url_for('admin.approvals') }}" class="{{ 'active' if request.endpoint == 'admin.approvals' }}">
+        承認待ち{% if pending_count %}<span class="nav-count">{{ pending_count }}</span>{% endif %}
+      </a>
+      {% if can(g.current_user, 'audit.read') %}
+      <a href="{{ url_for('admin.audit_logs') }}" class="{{ 'active' if request.endpoint == 'admin.audit_logs' }}">監査ログ</a>
+      {% endif %}
+      <a href="{{ url_for('admin.transfer') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('admin.transfer') }}">データ連携</a>
+      <a href="{{ url_for('admin.account') }}" class="{{ 'active' if request.endpoint in ('admin.account', 'admin.issue_token') }}">アカウント</a>
+    </nav>
+    <div class="who-am-i">
+      <span>{{ g.current_user.display_name }} <span class="role role-{{ g.current_user.role }}">{{ ROLE_LABELS[g.current_user.role] }}</span></span>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        {# POST するフォームには必ず CSRF トークンを入れる（routes/auth.py 参照） #}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost btn-sm" type="submit">ログアウト</button>
+      </form>
+    </div>
+    {% endif %}
+  </header>
+
+  <main class="admin-main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flashes">
+        {% for category, message in messages %}
+          <p class="flash flash-{{ category }}">{{ message }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

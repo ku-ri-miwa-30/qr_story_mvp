@@ -1,0 +1,31 @@
+{# _audit_table.html — 監査ログの表（部品）。変数 logs が必要 #}
+{% if logs %}
+<div class="table-wrap">
+  <table class="table audit-table">
+    <thead><tr><th>日時</th><th>操作した人</th><th>操作</th><th>対象</th><th>変更内容</th><th>経路</th></tr></thead>
+    <tbody>
+    {% for log in logs %}
+      <tr>
+        <td class="nowrap">{{ log.occurred_at }}</td>
+        <td>{{ log.actor_name or '—' }}</td>
+        <td><code>{{ log.action }}</code></td>
+        <td class="nowrap">{% if log.target_type %}{{ log.target_type }}#{{ log.target_id or '' }}{% endif %}</td>
+        <td>
+          {% if log.before_json or log.after_json %}
+          {# <details> はクリックで開け閉めできるHTMLの標準部品 #}
+          <details>
+            <summary>表示</summary>
+            {% if log.before_json %}<p class="diff-label">変更前</p><pre>{{ log.before_json }}</pre>{% endif %}
+            {% if log.after_json %}<p class="diff-label">変更後</p><pre>{{ log.after_json }}</pre>{% endif %}
+          </details>
+          {% endif %}
+        </td>
+        <td class="nowrap">{{ log.via or '' }}{% if log.ip_address %}<br><span class="small muted">{{ log.ip_address }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <p class="empty-inline">ログはありません。</p>
+{% endif %}
