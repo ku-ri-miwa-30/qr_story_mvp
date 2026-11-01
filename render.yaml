@@ -18,7 +18,7 @@ services:
     disk:
       name: data
       mountPath: /var/data # ここに DB と写真を保存する（再起動・再デプロイしても消えない）
-      sizeGB: 1
+      # sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
