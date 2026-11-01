@@ -8,8 +8,8 @@ services:
     runtime: python
     # 永続ディスク（DB・写真を残す）は有料プランでしか使えないため starter（月7ドル）。
     # free にすると、15分アクセスが無いだけでデータ（DB・写真）が消えるので注意。
-    plan: starter
-    region: singapore           # 日本から近いリージョン
+    plan: free
+    region: singapore # 日本から近いリージョン
     buildCommand: pip install -r requirements.txt
     # gunicorn = 本番用のWebサーバー。"app:create_app()" は「app.py の create_app() を呼んで起動」の意味
     # --preload：起動処理（表の作成・初期ユーザー作成）を1回だけ行ってから、処理用プロセスを2つに増やす
@@ -17,7 +17,7 @@ services:
     healthCheckPath: /healthz
     disk:
       name: data
-      mountPath: /var/data      # ここに DB と写真を保存する（再起動・再デプロイしても消えない）
+      mountPath: /var/data # ここに DB と写真を保存する（再起動・再デプロイしても消えない）
       sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
@@ -27,10 +27,10 @@ services:
       - key: DATA_DIR
         value: /var/data
       - key: TZ
-        value: Asia/Tokyo       # 日時を日本時間で記録する
+        value: Asia/Tokyo # 日時を日本時間で記録する
       - key: SECRET_KEY
-        generateValue: true     # Render がランダムな値を自動で作ってくれる
+        generateValue: true # Render がランダムな値を自動で作ってくれる
       - key: EDITOR_PASSWORD
-        sync: false             # 作成時に Render の画面で入力する（GitHubには書かない）
+        sync: false # 作成時に Render の画面で入力する（GitHubには書かない）
       - key: APPROVER_PASSWORD
         sync: false
