@@ -4,12 +4,14 @@ seed.py — 動作確認用のサンプル商品を登録するスクリプト
 使い方：
     python seed.py
 
+Render の無料プランでは再起動のたびにデータが消えるため、
+環境変数 SEED_SAMPLE_DATA=true のときは、DB が空なら起動時に自動でこの関数が呼ばれます（app.py）。
+
 サービス層の関数をそのまま使って登録するので、
 「編集者が登録 → 申請 → 承認者が承認」という本物と同じ流れでデータが入り、監査ログも残ります。
 ※ 登場する農園・人物はすべて架空です。
 """
 
-from app import create_app
 from repositories import users as users_repo
 from services import product_service, workflow_service
 
@@ -54,31 +56,40 @@ SAMPLES = [
 ]
 
 
+def seed_samples(log=print):
+    """
+    サンプル商品を登録する。app_context() の中で呼ぶこと。
+    同じ名前の商品が既にあればスキップするので、何回呼んでも二重登録されない。
+    """
+    editor = users_repo.find_by_username("editor")
+    approver = users_repo.find_by_username("approver")
+
+    existing = {p["name"] for p in product_service.list_products()}
+    for i, sample in enumerate(SAMPLES):
+        if sample["name"] in existing:
+            log(f"スキップ（登録済み）: {sample['name']}")
+            continue
+
+        data = {k: v for k, v in sample.items() if k != "events"}
+        product_id = product_service.create_product(editor, data)
+        for event_date, title, description in sample["events"]:
+            product_service.add_event(editor, product_id, {
+                "event_date": event_date, "title": title, "description": description})
+
+        # 1つ目は「公開中」、2つ目は「承認待ち」にして、承認画面を試せるようにする
+        workflow_service.perform(editor, product_id, "submit", "確認をお願いします。")
+        if i == 0:
+            workflow_service.perform(approver, product_id, "approve", "内容OKです。公開します。")
+        log(f"登録しました: {sample['name']}")
+
+
 def main():
+    from app import create_app  # app.py からも seed_samples を使うので、循環 import を避けてここで読む
+
     app = create_app()
     # Flask の外（スクリプト）から DB を使うときは app_context() の中で実行する
     with app.app_context():
-        editor = users_repo.find_by_username("editor")
-        approver = users_repo.find_by_username("approver")
-
-        existing = {p["name"] for p in product_service.list_products()}
-        for i, sample in enumerate(SAMPLES):
-            if sample["name"] in existing:
-                print(f"スキップ（登録済み）: {sample['name']}")
-                continue
-
-            data = {k: v for k, v in sample.items() if k != "events"}
-            product_id = product_service.create_product(editor, data)
-            for event_date, title, description in sample["events"]:
-                product_service.add_event(editor, product_id, {
-                    "event_date": event_date, "title": title, "description": description})
-
-            # 1つ目は「公開中」、2つ目は「承認待ち」にして、承認画面を試せるようにする
-            workflow_service.perform(editor, product_id, "submit", "確認をお願いします。")
-            if i == 0:
-                workflow_service.perform(approver, product_id, "approve", "内容OKです。公開します。")
-            print(f"登録しました: {sample['name']}")
-
+        seed_samples()
     print("完了！ python app.py で起動して http://127.0.0.1:5000 を開いてください。")
 
 

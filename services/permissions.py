@@ -27,6 +27,7 @@ ROLE_PERMISSIONS = {
         "product.unpublish",  # 公開停止
         "product.delete",  # 削除
         "audit.read",  # 監査ログの閲覧
+        "transfer.restore",  # バックアップからの復元（公開状態もそのまま戻す）
     },
 }
 

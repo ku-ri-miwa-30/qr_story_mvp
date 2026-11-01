@@ -10,6 +10,7 @@ product_service.py — 商品と「できるまでの記録」に関する業務
 """
 
 import os
+import re
 import secrets
 from datetime import date, datetime, timedelta
 
@@ -179,12 +180,18 @@ def _new_slug():
             return slug
 
 
-def create_product(user, raw, image_filename=None):
-    """商品を「下書き」で登録し、新しい id を返す。"""
+SLUG_PATTERN = re.compile(r"^[A-Za-z0-9_-]{4,32}$")
+
+
+def create_product(user, raw, image_filename=None, slug=None):
+    """
+    商品を「下書き」で登録し、新しい id を返す。
+    slug（公開URLの文字列）は通常は自動で作る。JSONから復元するときだけ、元の値を引き継ぐ。
+    """
     permissions.require(user, "product.write")
     data = validate_product(raw)
     with transaction():
-        product_id = products_repo.insert(data, _new_slug(), user["id"], image_filename)
+        product_id = products_repo.insert(data, slug or _new_slug(), user["id"], image_filename)
         audit_service.record(user, "product.create", "product", product_id,
                              after={**data, "image_filename": image_filename})
     return product_id

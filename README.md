@@ -7,7 +7,8 @@
 
 - **言語・技術**：Python 3.12 / Flask / SQLite / Jinja2
 - **外部ライブラリ**：Flask・qrcode・gunicorn（本番サーバー）の3つだけ
-- **設計書**：[docs/design.md](docs/design.md)（ER図・状態遷移図・API仕様・監査ログ設計）
+- **設計書**：[docs/design.md](docs/design.md)（ER図・状態遷移図・API仕様・監査ログ設計・次の案件との対応表）
+- **公開先**：Render 無料プラン（デモ用。データは再起動で消えるのでバックアップ／復元で運用）
 
 ---
 
@@ -82,18 +83,22 @@ $env:BASE_URL="http://192.168.1.23:5000"; python app.py    # Windows（PowerShel
 
 ---
 
-## 2. Render に公開する
+## 2. Render に公開する（無料プラン）
 
-### 料金について（大事）
+まずは **無料プラン** で「URLで見せられる状態」を作る方針です。`render.yaml` は無料プラン用になっています。
 
-| プラン | 月額 | データ（DB・写真） |
+### 無料プランで知っておくこと（大事）
+
+| 制限 | 影響 | このアプリでの対策 |
 |---|---|---|
-| Free | 0円 | **15分アクセスが無いだけで消える**（ディスクが一時的なため）。お試し専用 |
-| Starter ＋ ディスク1GB | 約7ドル＋0.25ドル | 再起動・再デプロイしても残る ← `render.yaml` はこちら |
+| 15分アクセスが無いとスリープ | 次に開いたとき、表示まで **約1分** かかる | デモの前に一度開いておく |
+| 保存先が一時的（永続ディスクなし） | 再起動・再デプロイ・スリープのたびに **DBと写真が消える** | ① 起動時にサンプル商品を自動投入<br>② エクスポートでバックアップ → 消えたら「復元」 |
+| — | 復元しないと、印刷済みQRのURLが「見つかりません」になる | 復元では **公開URL（slug）と公開状態をそのまま戻す** |
 
-実際の商品にQRを貼るなら Starter にしてください（QRを読み取ったら「見つかりません」は致命的なので）。
+つまり無料プランは **デモ・動作確認・知り合いに見てもらう用** です。
+実際の商品にQRを貼ってお客さんに配る段階になったら、有料プラン（後述）に切り替えてください。
 
-### 手順
+### 公開する手順
 
 1. [Render](https://render.com) に GitHub アカウントでサインアップ
 2. ダッシュボードで **New → Blueprint** → このリポジトリ（`qr_story_mvp`）を選ぶ
@@ -102,7 +107,37 @@ $env:BASE_URL="http://192.168.1.23:5000"; python app.py    # Windows（PowerShel
    - `APPROVER_PASSWORD`：承認者のパスワード
    - `SECRET_KEY` は自動で作られます
 4. **Apply** → 数分でデプロイ完了。`https://qr-story-mvp-xxxx.onrender.com` のようなURLが発行されます
-5. 以後は GitHub の `main` に push するたびに自動で再デプロイされます
+5. 開くと、サンプル商品2件（公開中・承認待ち）が入った状態で使えます
+6. 以後は GitHub の `main` に push するたびに自動で再デプロイされます（＝データは消えます）
+
+> ユーザー（editor / approver）は環境変数のパスワードで起動のたびに作り直されるので、データが消えてもログインはできます。
+
+### データが消える前提の運用（バックアップと復元）
+
+自分の商品を登録して使うときは、次の流れにします。
+
+1. 商品を登録・承認したら、**管理画面「データ連携」→「JSONをダウンロード」** で手元に保存
+2. データが消えていたら、**承認者でログイン →「データ連携」→ ファイルを選び「バックアップから復元する」にチェック → 取り込む**
+3. 商品・記録・公開状態・公開URLが元どおりに戻ります（写真は含まれないので、必要なら再アップロード）
+
+> 自分の商品を復元して使うようになったら、Render の Environment で `SEED_SAMPLE_DATA` を `false` にしてください（サンプルが混ざらないように）。
+
+### 有料プランに切り替えるとき
+
+`render.yaml` を次のように変えて push するだけです（月7ドル程度＋ディスク代。最新の料金は Render の公式サイトで確認してください）。
+
+```yaml
+    plan: starter            # free → starter
+    disk:                    # コメントを外す
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR        # 追加
+        value: /var/data
+```
+
+切り替え直後にバックアップから復元すれば、同じQRのまま使い続けられます。
 
 > 独自ドメイン（例：`story.example.jp`）を使うなら、Render の Settings → Custom Domains で設定し、環境変数 `BASE_URL` にそのURLを入れてください。**QRに埋め込まれるURLが変わる** ので、ラベル印刷はドメインを決めてからがおすすめです。
 
@@ -115,6 +150,7 @@ $env:BASE_URL="http://192.168.1.23:5000"; python app.py    # Windows（PowerShel
 | `DATA_DIR` | DB と写真の保存先フォルダ | `./data` |
 | `BASE_URL` | QRに埋め込むURLの先頭 | 空（アクセス中のURL） |
 | `EDITOR_PASSWORD` / `APPROVER_PASSWORD` | 初回起動時に作るユーザーのパスワード | `editor` / `approver`（本番では起動しない） |
+| `SEED_SAMPLE_DATA` | `true` なら、DBが空のとき起動時にサンプル商品を入れる | `false`（`render.yaml` では `true`） |
 
 ---
 
@@ -147,12 +183,12 @@ qr_story_mvp/
 │
 ├── templates/             ← HTML（Jinja2）
 ├── static/style.css
-├── tests/test_app.py      ← 自動テスト（22件）
+├── tests/test_app.py      ← 自動テスト（27件）
 ├── docs/
 │   ├── design.md              設計書
 │   └── sample-import.json     インポート用サンプル
 ├── api.http               ← VS Code の REST Client で API を叩く
-├── render.yaml            ← Render の設定
+├── render.yaml            ← Render の設定（無料プラン）
 └── .vscode/               ← F5 実行・おすすめ拡張機能
 ```
 
@@ -173,6 +209,9 @@ qr_story_mvp/
 | 編集ボタンが出ない | 承認待ち・公開中は編集できない → 取り下げ／公開停止で下書きに戻す |
 | API が 401 | `Authorization: Bearer <トークン>` が無い、またはトークンを再発行して古いものを使っている |
 | Render で起動しない | ログに「EDITOR_PASSWORD…」→ 環境変数を設定する |
+| Render で登録した商品が消えた | 無料プランの仕様（再起動・スリープで消える）→ バックアップから復元する |
+| Render で最初の表示がとても遅い | 無料プランのスリープ明け（約1分）。2回目以降は速い |
+| 復元で「公開URLは既に使われています」 | 同じバックアップを2回取り込もうとしている → 商品一覧を確認 |
 
 ---
 

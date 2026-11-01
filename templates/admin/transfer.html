@@ -14,6 +14,7 @@
   <section class="card">
     <h2>エクスポート（このシステム → 外部）</h2>
     <p class="muted">全商品と「できるまでの記録」を1つのJSONファイルでダウンロードします（写真は含みません）。</p>
+    <p class="hint warn">無料プランで公開中は、データが消えることがあります。商品を登録・承認したら、その都度ダウンロードして保管しておいてください（バックアップ）。</p>
     <p><a class="btn btn-primary" href="{{ url_for('admin.transfer_export') }}">JSONをダウンロード</a></p>
   </section>
 
@@ -26,6 +27,12 @@
         <span>JSONファイル</span>
         <input type="file" name="file" accept="application/json,.json" required>
       </label>
+      {% if can(g.current_user, 'transfer.restore') %}
+      <label class="check field">
+        <input type="checkbox" name="restore" value="1">
+        バックアップから復元する（公開URLと状態もファイルのまま戻す・承認者のみ）
+      </label>
+      {% endif %}
       <button class="btn btn-primary" type="submit">取り込む</button>
     </form>
   </section>
@@ -53,7 +60,7 @@
 {% if result %}
 <section class="card">
   <h2>取り込み結果</h2>
-  <p>{{ result.created }} 件を下書きとして登録しました。</p>
+  <p>{{ result.created }} 件を{{ '復元' if result.mode == 'restore' else '下書きとして登録' }}しました。</p>
   <ul>
     {% for pid in result.product_ids %}
       <li><a href="{{ url_for('admin.product_detail', product_id=pid) }}">商品 #{{ pid }}</a></li>

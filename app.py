@@ -13,7 +13,7 @@ app.py — アプリの入口（組み立て役）
     SQLite（data/story_qr.db）
 
     上の層は下の層だけを呼ぶ（下から上は呼ばない）のがルール。
-    Java/Spring の案件の Controller → Service → Repository と同じ考え方です。
+    FastAPI でも routers → services → repositories と分けるのが一般的で、考え方は同じです。
 
 ■ 起動方法
     python app.py                      # 開発用サーバー（http://127.0.0.1:5000）
@@ -52,6 +52,11 @@ def create_app(test_config=None):
     db.init_app(app)
     with app.app_context():
         auth_service.ensure_initial_users(app.config)
+        # Render 無料プラン用：再起動でDBが空になったら、サンプル商品を自動で入れ直す
+        if app.config["SEED_SAMPLE_DATA"] and not product_service.list_products():
+            from seed import seed_samples
+
+            seed_samples(log=app.logger.info)
 
     # ---- ルート（ブループリント）を登録 ----
     auth.init_csrf(app)

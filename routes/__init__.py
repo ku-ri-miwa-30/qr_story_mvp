@@ -10,5 +10,5 @@ routes/ — ルート層（コントローラー）：「リクエストを受�
     api.py    … REST API（JSON）  /api/v1/...
     public.py … お客さん向けの物語ページ
 
-Java（Spring）の案件でいう Controller / RestController にあたる層です。
+FastAPI の案件では routers/（APIRouter）にあたる層です。
 """

@@ -222,9 +222,66 @@ class TransferTest(BaseTestCase):
         names = [p["name"] for p in self.api("GET", "/products", self.editor_token).get_json()["items"]]
         self.assertEqual(names.count("往復テスト"), 2)
 
+    def test_復元すると公開URLと公開状態がそのまま戻る(self):
+        # 公開中の商品を作ってバックアップ
+        p = self.create_product(name="復元テスト")
+        self.api("POST", f"/products/{p['id']}/submit", self.editor_token)
+        self.api("POST", f"/products/{p['id']}/approve", self.approver_token)
+        backup = self.api("GET", "/export", self.approver_token).get_json()
+
+        # 「データが消えた」状態を作る（無料プランの再起動を再現）
+        self.api("DELETE", f"/products/{p['id']}", self.approver_token)
+        self.assertEqual(self.client.get(f"/p/{p['slug']}").status_code, 404)
+
+        res = self.api("POST", "/import", self.approver_token, {**backup, "mode": "restore"})
+        self.assertEqual(res.status_code, 201, res.get_json())
+        # 印刷済みのQR（同じURL）で、また物語ページが開ける
+        self.assertEqual(self.client.get(f"/p/{p['slug']}").status_code, 200)
+
+    def test_復元は承認者だけ(self):
+        backup = self.payload([{"slug": "abcd1234", "status": "published",
+                                "name": "A", "producer_name": "X"}])
+        res = self.api("POST", "/import", self.editor_token, {**backup, "mode": "restore"})
+        self.assertEqual(res.status_code, 403)
+
+    def test_復元で公開URLが重複していたら1件も戻さない(self):
+        p = self.create_product()
+        backup = self.payload([
+            {"slug": "newslug1", "status": "draft", "name": "A", "producer_name": "X"},
+            {"slug": p["slug"], "status": "published", "name": "B", "producer_name": "Y"},
+        ])
+        res = self.api("POST", "/import", self.approver_token, {**backup, "mode": "restore"})
+        self.assertEqual(res.status_code, 422)
+        self.assertEqual(self.api("GET", "/products", self.editor_token).get_json()["count"], 1)
+
+    def test_通常の取り込みではファイルのslugと状態は使わない(self):
+        res = self.api("POST", "/import", self.editor_token, self.payload([
+            {"slug": "fixedslug", "status": "published", "name": "A", "producer_name": "X"}]))
+        product = self.api("GET", f"/products/{res.get_json()['product_ids'][0]}",
+                           self.editor_token).get_json()
+        self.assertEqual(product["status"], "draft")
+        self.assertNotEqual(product["slug"], "fixedslug")
+
     def test_形式が違うファイルは拒否(self):
         res = self.api("POST", "/import", self.editor_token, {"products": []})
         self.assertEqual(res.status_code, 422)
+
+
+class SeedOnStartTest(unittest.TestCase):
+    def test_SEED_SAMPLE_DATAがtrueなら空のDBにサンプルが入る(self):
+        tmp = tempfile.mkdtemp()
+        try:
+            config = {"DATABASE": os.path.join(tmp, "t.db"),
+                      "UPLOAD_FOLDER": os.path.join(tmp, "u"), "SEED_SAMPLE_DATA": True}
+            app = create_app(config)
+            from services import product_service
+            with app.app_context():
+                self.assertEqual(len(product_service.list_products()), 2)
+            create_app(config)  # 2回目の起動では増えない
+            with app.app_context():
+                self.assertEqual(len(product_service.list_products()), 2)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class WebTest(BaseTestCase):

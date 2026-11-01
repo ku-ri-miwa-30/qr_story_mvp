@@ -1,13 +1,24 @@
 # =====================================================================
 # render.yaml — Render の設定ファイル（Blueprint）
 # Render の画面で「New → Blueprint」からこのリポジトリを選ぶと、この内容で自動構築される。
+#
+# ■ 無料プラン（free）で動かす前提の設定です
+#   無料プランの制限（2026年11月時点・Render公式ドキュメントより）：
+#     ・15分アクセスが無いとスリープし、次のアクセスで起動するまで約1分かかる
+#     ・ファイルの保存先は一時的。再起動・再デプロイ・スリープのたびに
+#       DB（SQLite）とアップロード写真が消える
+#     ・永続ディスクは付けられない
+#   → この環境は「デモ・動作確認用」と割り切り、データは
+#     管理画面「データ連携」のエクスポートでバックアップ → 消えたら「復元」で戻す運用にする。
+#     （README「2. Render に公開する」参照）
+#
+# ■ 有料プランに上げるとき
+#   plan を starter にし、下のコメントの disk を有効にして、DATA_DIR を /var/data にする。
 # =====================================================================
 services:
   - type: web
     name: qr-story-mvp
     runtime: python
-    # 永続ディスク（DB・写真を残す）は有料プランでしか使えないため starter（月7ドル）。
-    # free にすると、15分アクセスが無いだけでデータ（DB・写真）が消えるので注意。
     plan: free
     region: singapore # 日本から近いリージョン
     buildCommand: pip install -r requirements.txt
@@ -15,19 +26,22 @@ services:
     # --preload：起動処理（表の作成・初期ユーザー作成）を1回だけ行ってから、処理用プロセスを2つに増やす
     startCommand: gunicorn "app:create_app()" --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --preload
     healthCheckPath: /healthz
-    disk:
-      name: data
-      mountPath: /var/data # ここに DB と写真を保存する（再起動・再デプロイしても消えない）
-      # sizeGB: 1
+    # --- 有料プラン（starter 以上）にしたら有効にする ---
+    # disk:
+    #   name: data
+    #   mountPath: /var/data
+    #   sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
       - key: APP_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data
       - key: TZ
         value: Asia/Tokyo # 日時を日本時間で記録する
+      # 再起動でDBが空になったら、サンプル商品を自動で入れ直す（デモがいつでも見られるように）。
+      # 自分の商品を「復元」して使うようになったら false にする（サンプルが混ざらないように）
+      - key: SEED_SAMPLE_DATA
+        value: "true"
       - key: SECRET_KEY
         generateValue: true # Render がランダムな値を自動で作ってくれる
       - key: EDITOR_PASSWORD

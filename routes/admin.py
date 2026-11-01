@@ -228,11 +228,17 @@ def transfer_import():
             payload = json.load(file.stream)
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise ValidationError(f"JSONとして読み込めませんでした（{e}）。")
+        # 「バックアップから復元」にチェックがあれば restore モードで取り込む
+        if request.form.get("restore") and isinstance(payload, dict):
+            payload["mode"] = "restore"
         result = transfer_service.import_products(g.current_user, payload)
     except ValidationError as e:
         return render_template("admin/transfer.html", result=None,
                                summary=e.message, errors=e.details), 422
-    flash(f"{result['created']} 件の商品を下書きとして取り込みました。", "success")
+    if result["mode"] == "restore":
+        flash(f"{result['created']} 件の商品を、公開URLと状態もそのままに復元しました。", "success")
+    else:
+        flash(f"{result['created']} 件の商品を下書きとして取り込みました。", "success")
     return render_template("admin/transfer.html", result=result, errors=[])
 
 

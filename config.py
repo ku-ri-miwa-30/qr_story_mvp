@@ -17,7 +17,9 @@ def load_config():
     app_env = os.environ.get("APP_ENV", "development")  # development / production
 
     # データ（DBファイル・アップロード画像）を置くフォルダ。
-    # Render では永続ディスクの /var/data を指定する（render.yaml 参照）。
+    # ※ Render の無料プランではこのフォルダは「一時的」で、再起動・再デプロイ・
+    #   15分アクセスなしのスリープのたびに中身が消える（README の「Render に公開する」参照）。
+    #   有料プランで永続ディスクを付けたら、そのマウント先（例：/var/data）を指定する。
     data_dir = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
 
     return {
@@ -34,6 +36,8 @@ def load_config():
         # 初回起動時に自動で作るユーザーのパスワード（本番では必ず環境変数で指定）
         "INITIAL_EDITOR_PASSWORD": os.environ.get("EDITOR_PASSWORD", "editor"),
         "INITIAL_APPROVER_PASSWORD": os.environ.get("APPROVER_PASSWORD", "approver"),
+        # true にすると、DB が空のとき起動時にサンプル商品を自動で入れる（無料プランのデモ用）
+        "SEED_SAMPLE_DATA": os.environ.get("SEED_SAMPLE_DATA", "false").lower() == "true",
         # Cookie の安全設定
         "SESSION_COOKIE_HTTPONLY": True,  # JavaScript から Cookie を読めなくする
         "SESSION_COOKIE_SAMESITE": "Lax",  # 他サイトからの送信で Cookie を付けにくくする
